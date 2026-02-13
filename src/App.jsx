@@ -112,6 +112,7 @@ function clampPixelCropToFrame(crop, frame) {
   const y2 = Math.min(frameY + frameHeight, cropY + cropHeight)
 
   return {
+    unit: 'px',
     x: x1,
     y: y1,
     width: Math.max(0, x2 - x1),
