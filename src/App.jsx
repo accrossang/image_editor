@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { centerCrop, makeAspectCrop } from 'react-image-crop'
 import ImageEditor from './components/ImageEditor'
 
 const ASPECT_PRESETS = [
@@ -14,32 +13,6 @@ const INSTAGRAM_MIN_ASPECT = 4 / 5
 const INSTAGRAM_MAX_ASPECT = 1.91
 const EPSILON = 0.001
 const INSTAGRAM_COMPATIBILITY_KEY = 'instagram'
-
-function createCenteredCrop(mediaWidth, mediaHeight, aspect) {
-  if (!aspect) {
-    return {
-      unit: '%',
-      x: 20,
-      y: 20,
-      width: 60,
-      height: 60
-    }
-  }
-
-  return centerCrop(
-    makeAspectCrop(
-      {
-        unit: '%',
-        width: 80
-      },
-      aspect,
-      mediaWidth,
-      mediaHeight
-    ),
-    mediaWidth,
-    mediaHeight
-  )
-}
 
 function createCenteredCropInFrame(frame, aspect) {
   const frameX = frame.x ?? 0
@@ -147,19 +120,17 @@ function clampPixelCropToFrame(crop, frame) {
 }
 
 export default function App() {
-  const compatibilityMode = useMemo(() => {
+  const searchParams = useMemo(() => {
     if (typeof window === 'undefined') {
-      return null
+      return new URLSearchParams()
     }
 
-    return (
-      new URLSearchParams(window.location.search)
-        .get('compatibility')
-        ?.toLowerCase() || null
-    )
+    return new URLSearchParams(window.location.search)
   }, [])
+  const compatibilityMode = searchParams.get('compatibility')?.toLowerCase() || null
   const instagramCompatibilityEnabled =
     compatibilityMode === INSTAGRAM_COMPATIBILITY_KEY
+  const hasErrorParam = searchParams.get('error') === '1'
 
   const [source, setSource] = useState(null)
   const [activePreset, setActivePreset] = useState(ASPECT_PRESETS[0])
@@ -167,6 +138,7 @@ export default function App() {
   const [completedCrop, setCompletedCrop] = useState(null)
   const [livePixelCrop, setLivePixelCrop] = useState(null)
   const [imageFrame, setImageFrame] = useState(null)
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(hasErrorParam)
 
   const effectiveCrop = useMemo(() => {
     if (!imageFrame?.width || !imageFrame?.height) {
@@ -230,12 +202,13 @@ export default function App() {
       return
     }
 
-    const nextCrop =
-      createCenteredCropInFrame(nextFrame, activePreset.aspect) ||
-      createCenteredCrop(img.width, img.height, activePreset.aspect)
+    const nextCrop = createCenteredCropInFrame(nextFrame, activePreset.aspect)
+    if (!nextCrop) {
+      return
+    }
     setCrop(nextCrop)
     setCompletedCrop(null)
-    setLivePixelCrop(nextCrop.unit === 'px' ? nextCrop : null)
+    setLivePixelCrop(nextCrop)
   }
 
   const handlePresetChange = (preset, imageRef, frame) => {
@@ -256,29 +229,45 @@ export default function App() {
       return
     }
 
-    const nextCrop = createCenteredCrop(
-      imageRef.width,
-      imageRef.height,
-      preset.aspect
-    )
+    const fallbackFrame = {
+      x: 0,
+      y: 0,
+      width: imageRef.width,
+      height: imageRef.height
+    }
+    const nextCrop = createCenteredCropInFrame(fallbackFrame, preset.aspect)
+    if (!nextCrop) {
+      return
+    }
     setCrop(nextCrop)
     setCompletedCrop(null)
-    setLivePixelCrop(null)
+    setLivePixelCrop(nextCrop)
+    setImageFrame(fallbackFrame)
   }
 
   const handleCropChange = (pixelCrop, percentCrop, frame) => {
-    setCrop(percentCrop)
-    setLivePixelCrop(pixelCrop)
-    if (frame) {
-      setImageFrame(frame)
+    const activeFrame = frame || imageFrame
+    const nextCrop = activeFrame
+      ? clampPixelCropToFrame(pixelCrop, activeFrame)
+      : pixelCrop
+
+    setCrop(nextCrop)
+    setLivePixelCrop(nextCrop)
+    if (activeFrame) {
+      setImageFrame(activeFrame)
     }
   }
 
   const handleCropComplete = (pixelCrop, frame) => {
-    setCompletedCrop(pixelCrop)
-    setLivePixelCrop(pixelCrop)
-    if (frame) {
-      setImageFrame(frame)
+    const activeFrame = frame || imageFrame
+    const nextCrop = activeFrame
+      ? clampPixelCropToFrame(pixelCrop, activeFrame)
+      : pixelCrop
+
+    setCompletedCrop(nextCrop)
+    setLivePixelCrop(nextCrop)
+    if (activeFrame) {
+      setImageFrame(activeFrame)
     }
   }
 
@@ -326,6 +315,8 @@ export default function App() {
       instagramCompatible={instagramCompatible}
       currentAspect={currentAspect}
       showCompatibility={instagramCompatibilityEnabled}
+      showErrorModal={isErrorModalOpen}
+      onCloseErrorModal={() => setIsErrorModalOpen(false)}
     />
   )
 }

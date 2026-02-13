@@ -66,6 +66,8 @@ export default function ImageEditor({
   instagramCompatible,
   currentAspect,
   showCompatibility,
+  showErrorModal,
+  onCloseErrorModal,
   onCropChange,
   onCropComplete,
   onImageLoaded,
@@ -112,20 +114,15 @@ export default function ImageEditor({
 
   const getImageFrame = () => {
     const image = imageRef.current
-    const cropArea = cropAreaRef.current
-    if (!image || !cropArea) {
+    if (!image) {
       return null
     }
 
-    const cropRoot = cropArea.querySelector('.ReactCrop')
-    const baseRect = (cropRoot || cropArea).getBoundingClientRect()
-    const imageRect = image.getBoundingClientRect()
-
     return {
-      x: imageRect.left - baseRect.left,
-      y: imageRect.top - baseRect.top,
-      width: imageRect.width,
-      height: imageRect.height
+      x: 0,
+      y: 0,
+      width: image.width,
+      height: image.height
     }
   }
 
@@ -228,6 +225,17 @@ export default function ImageEditor({
           className="hidden-input"
         />
       </main>
+
+      {showErrorModal && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-card">
+            <div className="modal-text">
+              Пропорции изображения для Инстаграм должны быть от 4:5 до 1.91:1. Ниже уже выбран максимально возможный размер.
+            </div>
+            <button className="primary-btn" onClick={onCloseErrorModal}>Понятно</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
