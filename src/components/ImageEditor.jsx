@@ -147,7 +147,7 @@ export default function ImageEditor({
             <button
               key={preset.id}
               className={`preset-btn ${activePreset.id === preset.id ? 'active' : ''}`}
-              onClick={() => onPresetChange(preset, imageRef.current)}
+              onClick={() => onPresetChange(preset, imageRef.current, getImageFrame())}
             >
               {preset.label}
             </button>

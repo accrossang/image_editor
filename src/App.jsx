@@ -41,6 +41,46 @@ function createCenteredCrop(mediaWidth, mediaHeight, aspect) {
   )
 }
 
+function createCenteredCropInFrame(frame, aspect) {
+  const frameX = frame.x ?? 0
+  const frameY = frame.y ?? 0
+  const frameWidth = frame.width ?? 0
+  const frameHeight = frame.height ?? 0
+
+  if (!frameWidth || !frameHeight) {
+    return null
+  }
+
+  if (!aspect) {
+    const width = frameWidth * 0.6
+    const height = frameHeight * 0.6
+    return {
+      unit: 'px',
+      x: frameX + (frameWidth - width) / 2,
+      y: frameY + (frameHeight - height) / 2,
+      width,
+      height
+    }
+  }
+
+  const safeArea = 0.8
+  let width = frameWidth * safeArea
+  let height = width / aspect
+
+  if (height > frameHeight * safeArea) {
+    height = frameHeight * safeArea
+    width = height * aspect
+  }
+
+  return {
+    unit: 'px',
+    x: frameX + (frameWidth - width) / 2,
+    y: frameY + (frameHeight - height) / 2,
+    width,
+    height
+  }
+}
+
 function createInstagramCompatibleCrop(frame) {
   const frameX = frame.x ?? 0
   const frameY = frame.y ?? 0
@@ -190,18 +230,28 @@ export default function App() {
       return
     }
 
-    const nextCrop = createCenteredCrop(
-      img.width,
-      img.height,
-      activePreset.aspect
-    )
+    const nextCrop =
+      createCenteredCropInFrame(nextFrame, activePreset.aspect) ||
+      createCenteredCrop(img.width, img.height, activePreset.aspect)
     setCrop(nextCrop)
     setCompletedCrop(null)
-    setLivePixelCrop(null)
+    setLivePixelCrop(nextCrop.unit === 'px' ? nextCrop : null)
   }
 
-  const handlePresetChange = (preset, imageRef) => {
+  const handlePresetChange = (preset, imageRef, frame) => {
     setActivePreset(preset)
+    const targetFrame = frame || imageFrame
+
+    if (targetFrame?.width && targetFrame?.height) {
+      const nextCrop = createCenteredCropInFrame(targetFrame, preset.aspect)
+      if (nextCrop) {
+        setCrop(nextCrop)
+        setCompletedCrop(null)
+        setLivePixelCrop(nextCrop)
+        return
+      }
+    }
+
     if (!imageRef?.width || !imageRef?.height) {
       return
     }
