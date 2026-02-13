@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ReactCrop from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
 
@@ -79,6 +79,7 @@ export default function ImageEditor({
   const imageRef = useRef(null)
   const cropAreaRef = useRef(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [cropAreaSize, setCropAreaSize] = useState({ width: 0, height: 0 })
 
   const disabledSave = useMemo(() => {
     if (!source || !completedCrop?.width || !completedCrop?.height) {
@@ -111,6 +112,38 @@ export default function ImageEditor({
       setIsSaving(false)
     }
   }
+
+  useEffect(() => {
+    const cropArea = cropAreaRef.current
+    if (!cropArea) {
+      return
+    }
+
+    const updateSize = () => {
+      setCropAreaSize({
+        width: cropArea.clientWidth,
+        height: cropArea.clientHeight
+      })
+    }
+
+    updateSize()
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateSize)
+      return () => {
+        window.removeEventListener('resize', updateSize)
+      }
+    }
+
+    const observer = new ResizeObserver(updateSize)
+    observer.observe(cropArea)
+    window.addEventListener('resize', updateSize)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', updateSize)
+    }
+  }, [source])
 
   const getImageFrame = () => {
     const image = imageRef.current
@@ -211,6 +244,14 @@ export default function ImageEditor({
                   alt="Редактируемое изображение"
                   onLoad={(event) => onImageLoaded(event.currentTarget, getImageFrame())}
                   className="preview-image"
+                  style={
+                    cropAreaSize.width && cropAreaSize.height
+                      ? {
+                          maxWidth: `${cropAreaSize.width}px`,
+                          maxHeight: `${cropAreaSize.height}px`
+                        }
+                      : undefined
+                  }
                 />
               </ReactCrop>
             </div>
